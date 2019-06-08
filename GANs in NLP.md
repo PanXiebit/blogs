@@ -8,10 +8,13 @@
 - [Generative Adversarial Networks](https://arxiv.org/abs/1406.2661v1)
 - [李宏毅老师讲seqGAN](https://www.bilibili.com/video/av9770302/?p=17)
 - [Role of RL in Text Generation by GAN(强化学习在生成对抗网络文本生成中扮演的角色)](https://zhuanlan.zhihu.com/p/29168803)
-- [好玩的文本生成](https://blog.csdn.net/ycy0706/article/details/80425091)
-
+- [好玩的文本生成](https://blog.csdn.net/ycy0706/article/details/80425091)  
+- [Conditional Generative Adversarial Nets](https://arxiv.org/abs/1411.1784)  
+- [Generative Adversarial Text to Image Synthesis](https://arxiv.org/abs/1605.05396)  
+- [Adver-sarial Learning for Neural Dialogue Generation](https://arxiv.org/abs/1701.06547)  
+cloudml
 ## 为什么GAN不适合文本生成
-前面学过了GAN很自然的就会想到将GAN引入到文本生成中来，比如对话可以看作是conditional GAN, 但实际上却并不如想象中那样简单，原因是GAN只适用于连续数据的生成，对离散数据效果不佳。描述主体能够观察到什么的规则
+前面学过了GAN很自然的就会想到将GAN引入到文本生成中来，比如对话可以看作是conditional GAN, 但实际上却并不如想象中那样简单，原因是GAN只适用于连续数据的生成，对离散数据效果不佳。
 
 ![](GANs-in-NLP/gan_continuous.png)
 
@@ -19,7 +22,7 @@
 - sampling：从生成得到的softmax probability到one-hot向量，从而查询出对应index的词，这一步称为“sampling”，显然是不可微的。  
 - 去掉sampling,将softmax probability和one-hot vector作为discriminator的输入，如果是discriminator是一个二分类器的话，判别器D很容易“作弊”，它根本不用去判断生成分布是否与真实分布更加接近，它只需要识别出给到的分布是不是除了一项是 1 ，其余都是 0 就可以了。因此，我们也可以想到用WGAN来解决这个问题。[Improved Training of Wasserstein GANs]()也给出了文本生成的实验，效果当然是好了很多，不至于直接崩了。
 
-但是WGAN为什么没那么好呢？将一个softmax probability强行拉倒一个one-hot vector真的可行吗？
+但是WGAN为什么没那么好呢？将一个softmax probability强行拉倒一个one-hot vector真的可行吗？cloudml
 
 ## Gumbel-softmax，模拟Sampling的softmax
 
@@ -36,11 +39,9 @@ RL所适用的环境是一个典型的马尔科夫决策过程(Markov decision p
  - agent能采取的动作的集合 $A$  
  - 状态之间转换的规则 $P_a(s,s')=Pr(s_{t+1}=s'|s_t=s,a_t=a)$  
  - 规定转换之后的即时奖励 $R_a(s,s')$    
- - 描述主体能够观察到什么的规则
+ - 描述主体能够观察到什么的规则(这是啥玩意？？)
 
 ![](GANs-in-NLP/Reinforcement_learning_diagram.png)
-
-
 
 #### policy   
 将从头到尾所有的动作连在一起就称为一个“策略”或“策略路径” $pi$ ，强化学习的目标就是找出能够获得最多奖励的最优策略.
@@ -82,12 +83,11 @@ $$Q^{\pi}(s,a)=E[R|s,a,\pi]$$
 - 上式中 $h\sim P(h)$ 可以看作是均匀分布，所以 $E_{h\sim P(h)}\approx \dfrac{1}{N}$.  
 - 其中 $E_{x\sim P_{\theta}(x|h)}$ 的计算无法考虑所有的对话，所以通过采样 $(h^1,x^1), (h^2,x^2), .., (h^N,x^N)$ 来计算。
 
-然后问题来了，我们需要优化的参数 $\theta$ 不见了，可以采用强化学习中常用的 policy gradient 进行变形：
+然后问题来了，我们需要优化的参数 $\theta$ 不见了，这怎么对 $\theta$ 进行求导呢？可以采用强化学习中常用的 policy gradient 进行变形：
 $$\dfrac{dlog(f(x))}{dx}=\dfrac{1}{f(x)}\dfrac{df(x)}{dx}$$
 
+适当变形后，对 $\theta$ 进行求导：  
 ![](GANs-in-NLP/policy_gradient.png)
-
-第一步中加了一个log，因为log是单调递增的，所以不影响最后的结果。这样最终的奖励期望的函数表达式包含 $\theta$.
 
 这样一来，梯度优化的重心就转化到了生成对话的概率上来，也就是说，通过对参数 $\theta$ 进行更新，奖励会使模型趋于将优质对话的出现概率提高，而惩罚则会让模型趋于将劣质对话的出现概率降低。
 
@@ -96,3 +96,16 @@ $$\dfrac{dlog(f(x))}{dx}=\dfrac{1}{f(x)}\dfrac{df(x)}{dx}$$
 ![](GANs-in-NLP/rl_dilogue.png)
 
 ## SeqGAN 和 Conditional SeqGAN
+seqGAN对前面仅基于RL的对话生成进行了改进，也就是前面用pre-trained的打分器（或者是人类），用GAN中的判别器进行了代替。
+
+![](GANs-in-NLP/chat_bot_gan.png)
+
+这里问题在于生成得到的response x输入到判别器时，这个过程涉及到了sampling的操作，所以固定discriminator来更新generator时，梯度无法回流。
+
+![](GANs-in-NLP/no_gradient.png)
+
+这就需要RL的出现了。
+
+![](GANs-in-NLP/rl_in_dialogue.png)
+
+总结一下RL在这里面的作用：这里的discriminator得到的是reward。我们fix住判别器D来优化生成器 $\theta$ 的过程就变成了：生成器不再是原来的sample一个词，作为下一个time step的输入，因为这不可导。而是把当前time step作为一个state，然后采取action，这个action当然也是在词表中选一个词(用Monte Carlo Search). 以前是通过最大化似然概率（最小化交叉熵）来优化生成器，现在是寻找最优的 policy（最大化奖励期望）来优化生成器。而reward期望可以写成 $\theta$ 的连续函数，然后既可以根据最大化reward期望来优化 $\theta$,也就是梯度上升。
