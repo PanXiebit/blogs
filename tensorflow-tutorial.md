@@ -110,7 +110,7 @@ print(gen_o.read(3))             # Could not read index 3 twice because it was c
 - current time t state: $(y_1,...,y_t)$. 但是马尔科夫决策过程的原理告诉我们**一旦当前状态确定后，所有的历史信息都可以扔掉了。这个状态足够去预测 future.** 所以在LSTM里面就是隐藏状态 $h_{t-1}$. 以及当前可观测信息 $x_t$.  
 - action a: 选择 next token $y_t$.
 - policy: $G_{\theta}(y_t|Y_{1:t-1})$. 也就是生成next token的策略。下面代码的方法 $o_t \rightarrow log(softmax(o_t))$. 然后基于这个 log-prob 的分布进行 sample. 问题是这个过程可导吗？？？  
-- 
+-
 
 
 ```python  
