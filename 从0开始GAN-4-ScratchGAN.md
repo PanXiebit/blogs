@@ -1,8 +1,10 @@
 ## Training Language GANs from Scratch
+发现一个问题，目前看到language gans的相关paper大部分是Google，DeepMind的paper. 感觉是个深不见底的坑，弱渣哭了。。。
+
 ### Motivation
 我们知道language GAN非常难训练，主要是因为gradient estimation, optimization instability, and mode collapse等原因，这导致很多NLPer选择先基于maximum likelihood对模型进行预训练，然后在用language GAN进行fine-tune.作者认为这种 fine-tune 给模型带来的benefit并不clear，甚至会带来不好的效果。  
 
-> 关于mode collapse，李宏毅老师讲过，在对话生成时，模型总是倾向于生成“我不知道”，”我知道了”这样通用的没有太多sense的回复，其实就是属于mode collapse. 类似于图像领域，既要生成鼻子，又要生成嘴巴，但是模型没这个能力，就用一个居中的distribution来模拟这两个distribution。  
+> 关于mode collapse，李宏毅老师讲过，在对话生成时，模型总是倾向于生成“我不知道”，”我知道了”这样通用的没有太多sense的回复，其实就是属于mode collapse. 类似于图像领域，既要生成鼻子，又要生成嘴巴，但是模型会倾向于生成一个居中的distribution来模拟这两个distribution。  
 > 关于gradient estimator，是因为对于离散的数据，其gradients的方差会很大。
 
 [13-16]就是先使用ML预训练模型，然后在此基础上adversarial fine-tune.[17-18]则说明了 “that the best-performing GANs tend to stay close to the solution given by maximum-likelihood training”.
@@ -32,22 +34,41 @@ $$\argmax_{\theta}\mathbb{E}_{p^* (x)}logp_{\theta}(x)$$
 ### Generative Adversarial Networks
 ![](从0开始GAN-4-ScratchGAN/gans.png)
 前面seqgan也说过自回归模型中 $p_{\theta}=\prod_{t=1}^Tp_{\theta}(x_t|x_1,...,x_{t-1})$的过程有个sample的操作，这是不可导的。针对这个问题，有三种解决方法：  
-- 高方差，无偏估计的 reinforce[28]. 基于大数定律的条件下，去sample更多的example，然后基于policy gradient去学习对应的distribution，这使得速度很慢。  
+- 高方差，无偏估计的 reinforce[28]. 基于大数定律的条件下，去sample更多的example，来模拟 $p(y_t|s_t)$ 的分布，然后基于policy gradient去优化这个distribution，这使得速度很慢。  
 - 低方差，有偏估计的 gumbel-softmax trick[29-30].  
 - other continuous relaxations[11].  
 
 ### Learning Signals
-对于generator的训练，作者采用了基于 REINFORCE[28] 的方法:
+对于generator的训练，作者采用了基于 REINFORCE 的方法:
 ![](从0开始GAN-4-ScratchGAN/reinforce.png)
 
+其中同 MaliGAN[15] 一样，设置 $R(x)=\dfrac{p^* (x)}{p_{\theta}(x)}$, 这样等效于 MLE 估计。
+![](从0开始GAN-4-ScratchGAN/mailgan.png)
 
+基于MLE eatimator的梯度更新可以看作是reinforce的一个spacial case.区别在于language gans的reward是可以学习的，也就是discriminator是不断更新的。可学习的discriminator的效果已经被证明过了[34].
 
+如果learned reward能够提供相比MLE loss更光滑的信号，那么discriminator就能提供更多有意义的signal，甚至training data没有cover的distribution.
 
+同时，discriminator是可以ensemble的，使用更多的domain knowledge.这样能学习到更多的信息。
 
+### Training Language GANs from Scratch
+作者通过实验验证，要训好一个language gans，所需要的是：  
+- a recurrent discriminator used to provide dense rewards at each time step  
+- large batches for variance reduction  
+- discriminator regularization
+
+![](从0开始GAN-4-ScratchGAN/scratchgans.png)
+
+#### dense rewards  
+判别器能够判别generated sentence和real sentence，但是对于不完整的句子，就没办法去判断。这就造成，如果generated sentence很容易就被判断为fake，那么在fix discriminator训练generator时，生成器无法获得有意义的信号，也就是梯度为0吧。
+
+为了避免这种情况，作者采用了 MaskGAN[32] 的方法，
+![](从0开始GAN-4-ScratchGAN/maskgan.png)
 
 
 reference:
-[9] Ferenc Husz´ar. How (not) to train your generative model: Scheduled sampling, likelihood, adversary? arXiv
+[9] How (not) to train your generative model: Scheduled sampling, likelihood, adversary? arXiv
 [12-16]
 [17-18]
-[28]
+[32] Maskgan: Better text generation via filling in the
+[34]
