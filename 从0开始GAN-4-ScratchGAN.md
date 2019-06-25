@@ -21,7 +21,7 @@
     - Nearest neighbor analysis in embedding and data space provide evidence that our model is not trivially overfitting.   
 
 ### Generative Models of Text
-生成模型的本质就是对unknown data distribution进行建模，也就是学习模型 p(x|y) 的参数。在传统的机器学习里面，我们认为模型 p(x|y) 的分布就是多维高斯正态分布，然后用EM算法去学习得到参数。在基于DL的自然语言处理领域，$x=[x_1,..,x_T]$ 的序列特性使得其非常适合使用自回归模型进行建模:
+生成模型的本质就是对unknown data distribution进行建模，也就是学习模型 p(x|y) 的参数。在传统的机器学习里面，我们认为模型 p(x|y) 的分布就是多维高斯正态分布，然后用EM算法去学习得到参数。在基于neural network的自然语言处理领域，对于 $x=[x_1,..,x_T]$， $p_{\theta}(x_t|x_1,...,x_{t-1})$ 也可以看作是学习这样一个distribution，只不过模型的参数不是高斯正态分布这么简单，而是基于network来模拟的。同样序列特性使得其非常适合使用自回归模型进行建模:
 $$p_{\theta}=\prod_{t=1}^Tp_{\theta}(x_t|x_1,...,x_{t-1})$$
 
 ### Maximum Likelihood
@@ -62,9 +62,26 @@ $$\argmax_{\theta}\mathbb{E}_{p^* (x)}logp_{\theta}(x)$$
 #### dense rewards  
 判别器能够判别generated sentence和real sentence，但是对于不完整的句子，就没办法去判断。这就造成，如果generated sentence很容易就被判断为fake，那么在fix discriminator训练generator时，生成器无法获得有意义的信号，也就是梯度为0吧。
 
-为了避免这种情况，作者采用了 MaskGAN[32] 的方法，
+为了避免这种情况，作者采用了 [MaskGAN](https://arxiv.org/abs/1801.07736)[32] 的方法:  
+
+
+#### maskGAN
 ![](从0开始GAN-4-ScratchGAN/maskgan.png)
 
+maskGAN是一种 actor-critic 方法，利用类似于完形填空的形式，只需要生成被挖去的词，就能对整个sentence进行判别，并计算reward，这样得到的reward相比sentence中的每一个词都是生成的，其variance会小很多。
+
+具体做法是：
+
+1. 生成器是 seq2seq 的形式，输入sequence $x=(x_1,...,x_T)$. 通过 binary mask $m=(m_1,...,m_T)$ 得到 $m(x)$.  
+2. 根据 m(x) 来生成得到完整的 generated examples $\hat x=(\hat x_1, \hat x_2,...,\hat x_T)$.
+![](从0开始GAN-4-ScratchGAN/maskgan_gen.png)
+3. 这里生成的时候参考上图，如果当前time-step被mask了，则需要用到上一个time-step生成的词，如果没有被mask，就直接使用当前词，类似于teacher-forcing.  
+4. 判别器就是计算每一个词为真的概率，注意这里判别器的输入也有 m(x)，其原因是让模型更好的识别生成的sentence中，哪一个是之前被mask了的。  
+$$D_{\phi}(\tilde x_t|\tilde x_{0:T}, m(x)) = P(\tilde x_t=x_t^{real}|\tilde x_{0:T}, m(x))$$
+5. reward 的计算：  
+$$r_t=logD_{\phi}(\tilde x_t|\tilde x_{0:T}, m(x))$$
+
+#### Large Batch Sizes for Variance Reduction
 
 reference:
 [9] How (not) to train your generative model: Scheduled sampling, likelihood, adversary? arXiv
